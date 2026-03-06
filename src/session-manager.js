@@ -26,8 +26,9 @@ class BrowserSessionManager {
     try {
       console.log(`[SESSION] Connecting to Browserless: ${this.browserlessUrl}`);
       
-      // Connect to Browserless via CDP
-      this.browser = await chromium.connectOverCDP(this.browserlessUrl, {
+      // Connect to Browserless using standard Playwright connect method
+      // Browserless exposes Playwright WebSocket endpoint, not CDP
+      this.browser = await chromium.connect(this.browserlessUrl, {
         timeout: 30000
       });
 
