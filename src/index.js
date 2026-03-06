@@ -47,41 +47,28 @@ if (BROWSERLESS_TOKEN && !browserlessUrl.includes('token=')) {
   browserlessUrl = `${browserlessUrl}${separator}token=${BROWSERLESS_TOKEN}`;
 }
 
-// Convert OpenClaw Gateway URL to WebSocket format if needed
-// OpenClawClient expects WebSocket URL (ws:// or wss://)
-let baseUrl = OPENCLAW_GATEWAY_URL.trim();
+// Prepare OpenClaw Gateway URL
+// OpenClawClient may handle HTTP to WebSocket conversion internally
+let openclawUrl = OPENCLAW_GATEWAY_URL.trim();
 
-// Remove trailing slash first
-if (baseUrl.endsWith('/')) {
-  baseUrl = baseUrl.slice(0, -1);
+// Remove trailing slash
+if (openclawUrl.endsWith('/')) {
+  openclawUrl = openclawUrl.slice(0, -1);
 }
 
-// Convert HTTP to WebSocket protocol
-if (baseUrl.startsWith('http://')) {
-  baseUrl = baseUrl.replace('http://', 'ws://');
-} else if (baseUrl.startsWith('https://')) {
-  baseUrl = baseUrl.replace('https://', 'wss://');
+// Add WebSocket path if specified
+if (OPENCLAW_WS_PATH !== undefined && OPENCLAW_WS_PATH !== '') {
+  const wsPath = OPENCLAW_WS_PATH.startsWith('/') ? OPENCLAW_WS_PATH : `/${OPENCLAW_WS_PATH}`;
+  openclawUrl = `${openclawUrl}${wsPath}`;
 }
 
-// Determine WebSocket URL - try paths in order of likelihood
-let openclawUrl;
-if (OPENCLAW_WS_PATH !== undefined) {
-  // Use explicitly specified path (empty string means root)
-  if (OPENCLAW_WS_PATH === '') {
-    openclawUrl = baseUrl;
-  } else {
-    const wsPath = OPENCLAW_WS_PATH.startsWith('/') ? OPENCLAW_WS_PATH : `/${OPENCLAW_WS_PATH}`;
-    openclawUrl = `${baseUrl}${wsPath}`;
-  }
-} else {
-  // Try root path first (many WebSocket servers expose at root)
-  // Common paths to try: '', '/ws', '/gateway', '/api/gateway', '/api/ws'
-  openclawUrl = baseUrl; // Try root first
-  log.info(`Trying WebSocket at root path. If this fails, set OPENCLAW_WS_PATH to one of: '', '/ws', '/gateway', '/api/gateway', '/api/ws'`);
-}
+// Try passing HTTP URL first - OpenClawClient may convert it internally
+// If that doesn't work, we'll need to manually convert to WebSocket
+log.info(`Connecting to OpenClaw Gateway with URL: ${openclawUrl}`);
+log.info('Note: OpenClawClient may handle HTTP to WebSocket conversion internally');
 
 // Initialize OpenClaw client
-// OpenClawClient expects 'url' not 'gatewayUrl' and WebSocket URL
+// Try HTTP URL first - OpenClawClient may convert to WebSocket internally
 const client = new Client({
   url: openclawUrl,
   token: OPENCLAW_GATEWAY_TOKEN,
