@@ -45,9 +45,26 @@ const commandMapper = new CommandMapper(sessionManager);
 // Initialize Express app
 const app = express();
 
-// Middleware
-app.use(cors());
+// Log all incoming requests FIRST (before body parsing)
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  log.info(`[INCOMING] ${req.method} ${req.path} - ${timestamp}`);
+  log.info(`[INCOMING] Origin: ${req.headers.origin || 'none'}`);
+  log.info(`[INCOMING] User-Agent: ${req.headers['user-agent'] || 'none'}`);
+  log.info(`[INCOMING] Content-Type: ${req.headers['content-type'] || 'none'}`);
+  next();
+});
+
+// CORS middleware - allow all origins for debugging
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Body parsing middleware
 app.use(express.json({ limit: '50mb' })); // Support large screenshots
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Support form data
 
 // Health check endpoint
 app.get('/health', (req, res) => {
