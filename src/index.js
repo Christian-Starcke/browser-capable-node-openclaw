@@ -179,17 +179,6 @@ app.all('/test', (req, res) => {
   });
 });
 
-// Log all incoming requests for debugging
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  log.info(`[${req.method}] ${req.path} - ${timestamp}`);
-  log.debug(`[${req.method}] Headers:`, JSON.stringify(req.headers, null, 2));
-  if (Object.keys(req.query).length > 0) {
-    log.debug(`[${req.method}] Query:`, JSON.stringify(req.query, null, 2));
-  }
-  next();
-});
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   log.error('Express error:', err);
