@@ -63,7 +63,9 @@ class CommandMapper {
 
   async navigate(sessionId, url) {
     const page = await this.sessionManager.getOrCreatePage(sessionId);
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    // Use 'domcontentloaded' instead of 'networkidle' for faster response
+    // Reduce timeout to 20 seconds to prevent OpenClaw timeouts
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
     return {
       success: true,
       url: page.url(),
