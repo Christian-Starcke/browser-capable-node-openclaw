@@ -58,9 +58,23 @@ app.use((req, res, next) => {
 // CORS middleware - allow all origins for debugging
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
 }));
+
+// Handle OPTIONS requests explicitly (CORS preflight)
+app.options('*', (req, res) => {
+  const timestamp = new Date().toISOString();
+  log.info(`[OPTIONS] ${req.method} ${req.path} - ${timestamp}`);
+  log.info(`[OPTIONS] Origin: ${req.headers.origin || 'none'}`);
+  log.info(`[OPTIONS] Access-Control-Request-Method: ${req.headers['access-control-request-method'] || 'none'}`);
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.sendStatus(200);
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '50mb' })); // Support large screenshots
@@ -229,6 +243,36 @@ app.all('/test', (req, res) => {
     query: req.query,
     body: req.body
   });
+});
+
+// Catch-all route to log ANY requests to unexpected paths
+app.all('*', (req, res, next) => {
+  const timestamp = new Date().toISOString();
+  
+  // Skip logging for known endpoints (they already log themselves)
+  const knownPaths = ['/test', '/health', '/', '/browser/command', '/api/browser/command'];
+  if (!knownPaths.includes(req.path)) {
+    log.warn(`[CATCH-ALL] ${req.method} ${req.path} - ${timestamp}`);
+    log.warn(`[CATCH-ALL] Full URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
+    log.warn(`[CATCH-ALL] Origin: ${req.headers.origin || 'none'}`);
+    log.warn(`[CATCH-ALL] User-Agent: ${req.headers['user-agent'] || 'none'}`);
+    log.warn(`[CATCH-ALL] Query:`, JSON.stringify(req.query, null, 2));
+    log.warn(`[CATCH-ALL] Headers:`, JSON.stringify(req.headers, null, 2));
+    
+    res.status(404).json({
+      success: false,
+      error: `Endpoint not found: ${req.path}`,
+      receivedMethod: req.method,
+      availableEndpoints: [
+        'POST /browser/command',
+        'POST /api/browser/command',
+        'GET /health',
+        'GET /test'
+      ]
+    });
+  } else {
+    next();
+  }
 });
 
 // Error handling middleware
