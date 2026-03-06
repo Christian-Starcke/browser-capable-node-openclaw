@@ -65,17 +65,19 @@ if (baseUrl.startsWith('http://')) {
 
 // Determine WebSocket URL - try paths in order of likelihood
 let openclawUrl;
-if (OPENCLAW_WS_PATH) {
-  // Use explicitly specified path
-  const wsPath = OPENCLAW_WS_PATH.startsWith('/') ? OPENCLAW_WS_PATH : `/${OPENCLAW_WS_PATH}`;
-  openclawUrl = `${baseUrl}${wsPath}`;
+if (OPENCLAW_WS_PATH !== undefined) {
+  // Use explicitly specified path (empty string means root)
+  if (OPENCLAW_WS_PATH === '') {
+    openclawUrl = baseUrl;
+  } else {
+    const wsPath = OPENCLAW_WS_PATH.startsWith('/') ? OPENCLAW_WS_PATH : `/${OPENCLAW_WS_PATH}`;
+    openclawUrl = `${baseUrl}${wsPath}`;
+  }
 } else {
-  // Try common WebSocket paths (in order of likelihood)
-  // Most OpenClaw gateways use /gateway or /ws
-  const commonPaths = ['/gateway', '/ws', '', '/api/gateway', '/api/ws'];
-  // For now, try /gateway first (most common for OpenClaw)
-  openclawUrl = `${baseUrl}/gateway`;
-  log.info(`Trying WebSocket path /gateway. If this fails, set OPENCLAW_WS_PATH to one of: ${commonPaths.join(', ')}`);
+  // Try root path first (many WebSocket servers expose at root)
+  // Common paths to try: '', '/ws', '/gateway', '/api/gateway', '/api/ws'
+  openclawUrl = baseUrl; // Try root first
+  log.info(`Trying WebSocket at root path. If this fails, set OPENCLAW_WS_PATH to one of: '', '/ws', '/gateway', '/api/gateway', '/api/ws'`);
 }
 
 // Initialize OpenClaw client
