@@ -10,6 +10,7 @@ const Client = OpenClawClient;
 const {
   OPENCLAW_GATEWAY_URL,
   OPENCLAW_GATEWAY_TOKEN,
+  OPENCLAW_WS_PATH, // Optional: WebSocket path (default: try base URL, then /ws)
   BROWSERLESS_WS_ENDPOINT,
   BROWSERLESS_TOKEN,
   NODE_ID,
@@ -40,18 +41,27 @@ if (BROWSERLESS_TOKEN && !browserlessUrl.includes('token=')) {
 
 // Convert OpenClaw Gateway URL to WebSocket format if needed
 // OpenClawClient expects WebSocket URL (ws:// or wss://)
-let openclawUrl = OPENCLAW_GATEWAY_URL;
+let openclawUrl = OPENCLAW_GATEWAY_URL.trim();
+
+// Remove trailing slash first
+if (openclawUrl.endsWith('/')) {
+  openclawUrl = openclawUrl.slice(0, -1);
+}
+
+// Convert HTTP to WebSocket protocol
 if (openclawUrl.startsWith('http://')) {
   openclawUrl = openclawUrl.replace('http://', 'ws://');
 } else if (openclawUrl.startsWith('https://')) {
   openclawUrl = openclawUrl.replace('https://', 'wss://');
 }
-// Ensure it ends with /ws or /gateway if needed (common WebSocket paths)
-if (!openclawUrl.includes('/ws') && !openclawUrl.includes('/gateway')) {
-  // Try common WebSocket paths
-  const wsPath = openclawUrl.endsWith('/') ? 'ws' : '/ws';
+
+// Add WebSocket path if specified
+// Common paths: '/ws', '/gateway', '/api/ws', or empty for root
+if (OPENCLAW_WS_PATH) {
+  const wsPath = OPENCLAW_WS_PATH.startsWith('/') ? OPENCLAW_WS_PATH : `/${OPENCLAW_WS_PATH}`;
   openclawUrl = `${openclawUrl}${wsPath}`;
 }
+// If no path specified, try base URL (WebSocket at root)
 
 // Initialize OpenClaw client
 // OpenClawClient expects 'url' not 'gatewayUrl' and WebSocket URL
