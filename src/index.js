@@ -136,10 +136,41 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       browserCommand: '/browser/command',
-      browserCommandAlt: '/api/browser/command'
+      browserCommandAlt: '/api/browser/command',
+      test: '/test'
     },
     documentation: 'POST browser commands to /browser/command endpoint'
   });
+});
+
+// Test endpoint - logs all requests for debugging
+app.all('/test', (req, res) => {
+  const timestamp = new Date().toISOString();
+  log.info(`[TEST] ${req.method} request received at ${timestamp}`);
+  log.info(`[TEST] Headers:`, JSON.stringify(req.headers, null, 2));
+  log.info(`[TEST] Query:`, JSON.stringify(req.query, null, 2));
+  log.info(`[TEST] Body:`, JSON.stringify(req.body, null, 2));
+  
+  res.json({
+    success: true,
+    message: 'Test endpoint reached successfully',
+    timestamp,
+    method: req.method,
+    headers: req.headers,
+    query: req.query,
+    body: req.body
+  });
+});
+
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  log.info(`[${req.method}] ${req.path} - ${timestamp}`);
+  log.debug(`[${req.method}] Headers:`, JSON.stringify(req.headers, null, 2));
+  if (Object.keys(req.query).length > 0) {
+    log.debug(`[${req.method}] Query:`, JSON.stringify(req.query, null, 2));
+  }
+  next();
 });
 
 // Error handling middleware
