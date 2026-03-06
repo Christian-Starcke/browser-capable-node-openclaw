@@ -38,10 +38,25 @@ if (BROWSERLESS_TOKEN && !browserlessUrl.includes('token=')) {
   browserlessUrl = `${browserlessUrl}${separator}token=${BROWSERLESS_TOKEN}`;
 }
 
+// Convert OpenClaw Gateway URL to WebSocket format if needed
+// OpenClawClient expects WebSocket URL (ws:// or wss://)
+let openclawUrl = OPENCLAW_GATEWAY_URL;
+if (openclawUrl.startsWith('http://')) {
+  openclawUrl = openclawUrl.replace('http://', 'ws://');
+} else if (openclawUrl.startsWith('https://')) {
+  openclawUrl = openclawUrl.replace('https://', 'wss://');
+}
+// Ensure it ends with /ws or /gateway if needed (common WebSocket paths)
+if (!openclawUrl.includes('/ws') && !openclawUrl.includes('/gateway')) {
+  // Try common WebSocket paths
+  const wsPath = openclawUrl.endsWith('/') ? 'ws' : '/ws';
+  openclawUrl = `${openclawUrl}${wsPath}`;
+}
+
 // Initialize OpenClaw client
-// OpenClawClient expects 'url' not 'gatewayUrl'
+// OpenClawClient expects 'url' not 'gatewayUrl' and WebSocket URL
 const client = new Client({
-  url: OPENCLAW_GATEWAY_URL,
+  url: openclawUrl,
   token: OPENCLAW_GATEWAY_TOKEN,
   nodeId: NODE_ID,
   capabilities: ['browser']
@@ -95,13 +110,25 @@ const shutdown = async () => {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
+// Handle client errors
+client.on('error', (error) => {
+  log.error('OpenClawClient error:', error.message);
+  log.debug('Error details:', error);
+});
+
 // Connect to OpenClaw Gateway
+log.info(`Connecting to OpenClaw Gateway at: ${openclawUrl}`);
 client.connect()
   .then(() => {
     log.info(`Node ${NODE_ID} connected to OpenClaw Gateway with browser capability`);
     log.info(`Browserless endpoint: ${BROWSERLESS_WS_ENDPOINT}`);
   })
   .catch((error) => {
-    log.error('Failed to connect to OpenClaw Gateway:', error);
+    log.error('Failed to connect to OpenClaw Gateway:', error.message);
+    log.error('Connection URL attempted:', openclawUrl);
+    log.error('Original Gateway URL:', OPENCLAW_GATEWAY_URL);
+    if (LOG_LEVEL === 'debug') {
+      log.error('Full error:', error);
+    }
     process.exit(1);
   });
