@@ -1,20 +1,21 @@
-# OpenClaw Playwright Bridge for Browserless
+# OpenClaw Playwright Bridge for Browserless (HTTP API)
 
-A production-ready bridge node that connects OpenClaw to Browserless on Railway using Playwright. This service receives browser commands from OpenClaw, converts them to Playwright API calls, and executes them in persistent browser sessions via Browserless.
+A production-ready HTTP API bridge that connects OpenClaw to Browserless on Railway using Playwright. This service receives browser commands via HTTP, converts them to Playwright API calls, and executes them in persistent browser sessions via Browserless.
 
 ## Architecture
 
 ```
-OpenClaw → Bridge Node → Browserless (Railway) → Browser
+OpenClaw → HTTP API Bridge → Browserless (Railway) → Browser
 ```
 
-- **OpenClaw**: Sends browser tool commands
-- **Bridge Node**: Translates commands to Playwright API calls
+- **OpenClaw**: Sends browser tool commands via HTTP POST requests
+- **Bridge Node**: HTTP API server that translates commands to Playwright API calls
 - **Browserless**: Manages browser instances on Railway
 - **Browser**: Executes automation commands
 
 ## Features
 
+- ✅ HTTP REST API (no WebSocket required)
 - ✅ Playwright-based browser automation
 - ✅ Persistent browser sessions
 - ✅ Command mapping from OpenClaw to Playwright
@@ -22,27 +23,27 @@ OpenClaw → Bridge Node → Browserless (Railway) → Browser
 - ✅ Session management
 - ✅ Error handling and logging
 - ✅ Railway deployment ready
+- ✅ Health check endpoint
 
 ## Prerequisites
 
 - Node.js 18+
 - Railway account
-- OpenClaw Gateway URL and token
 - Browserless instance deployed on Railway
 
 ## Environment Variables
 
 ### Required
 
-- `OPENCLAW_GATEWAY_URL`: OpenClaw Gateway endpoint (e.g., `https://gateway.openclaw.io`)
-- `OPENCLAW_GATEWAY_TOKEN`: Authentication token for OpenClaw Gateway
-- `BROWSERLESS_WS_ENDPOINT`: Browserless WebSocket endpoint (e.g., `wss://your-browserless.railway.app`)
-- `NODE_ID`: Unique identifier for this bridge node (e.g., `browser-bridge-1`)
+- `BROWSERLESS_WS_ENDPOINT`: Browserless WebSocket endpoint (e.g., `wss://your-browserless.railway.app/playwright?token=...`)
 
 ### Optional
 
-- `BROWSERLESS_TOKEN`: Authentication token for Browserless (if required)
+- `BROWSERLESS_TOKEN`: Authentication token for Browserless (if not included in endpoint URL)
+- `PORT`: HTTP server port (default: `3000`)
 - `LOG_LEVEL`: Logging level (`info`, `debug`, `warn`, `error`) - default: `info`
+
+**Note**: `OPENCLAW_GATEWAY_URL` and `OPENCLAW_GATEWAY_TOKEN` are no longer required since we're using HTTP API instead of WebSocket connection.
 
 ## Installation
 
@@ -54,11 +55,9 @@ npm install
 
 ```bash
 # Set environment variables
-export OPENCLAW_GATEWAY_URL="https://your-gateway.openclaw.io"
-export OPENCLAW_GATEWAY_TOKEN="your-token"
-export BROWSERLESS_WS_ENDPOINT="wss://your-browserless.railway.app"
-export NODE_ID="browser-bridge-local"
-export BROWSERLESS_TOKEN="your-browserless-token"  # if required
+export BROWSERLESS_WS_ENDPOINT="wss://your-browserless.railway.app/playwright?token=your-token"
+export PORT=3000
+export LOG_LEVEL="info"
 
 # Run the bridge
 npm start
@@ -75,19 +74,80 @@ npm run dev
 
 2. **Configure environment variables**
    - Go to your Railway project settings
-   - Add all required environment variables listed above
+   - Add `BROWSERLESS_WS_ENDPOINT` (required)
+   - Optionally add `PORT` (defaults to 3000)
+   - Optionally add `LOG_LEVEL` (defaults to info)
 
 3. **Deploy**
    - If using GitHub: Push your code and Railway will auto-deploy
    - If using Railway CLI: `railway up`
 
 4. **Verify deployment**
-   - Check Railway logs for: `Node {NODE_ID} connected to OpenClaw Gateway`
-   - Verify connection to Browserless in logs
+   - Check Railway logs for: `Browser Bridge HTTP server listening on port 3000`
+   - Visit the health check endpoint: `https://your-bridge.railway.app/health`
+
+## HTTP API Endpoints
+
+### POST `/browser/command`
+
+Execute a browser command.
+
+**Request Body:**
+```json
+{
+  "action": "navigate",
+  "url": "https://example.com",
+  "sessionId": "default"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "https://example.com",
+  "title": "Example Domain"
+}
+```
+
+### POST `/api/browser/command`
+
+Alternative endpoint path (same functionality as `/browser/command`).
+
+### GET `/health`
+
+Health check endpoint.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "service": "browser-bridge",
+  "browserless": "configured",
+  "timestamp": "2026-03-06T15:00:00.000Z"
+}
+```
+
+### GET `/`
+
+Service information endpoint.
+
+**Response:**
+```json
+{
+  "service": "OpenClaw Browser Bridge",
+  "version": "2.0.0",
+  "endpoints": {
+    "health": "/health",
+    "browserCommand": "/browser/command",
+    "browserCommandAlt": "/api/browser/command"
+  }
+}
+```
 
 ## Supported Commands
 
-The bridge supports the following OpenClaw browser commands:
+The bridge supports the following browser commands:
 
 | Command | Description | Parameters |
 |---------|-------------|------------|
@@ -109,53 +169,76 @@ The bridge supports the following OpenClaw browser commands:
 ## Command Examples
 
 ### Navigate
-```json
-{
-  "action": "navigate",
-  "url": "https://example.com",
-  "sessionId": "default"
-}
+```bash
+curl -X POST https://your-bridge.railway.app/browser/command \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "navigate",
+    "url": "https://example.com",
+    "sessionId": "default"
+  }'
 ```
 
 ### Click Element
-```json
-{
-  "action": "click",
-  "selector": "button#submit",
-  "sessionId": "default"
-}
+```bash
+curl -X POST https://your-bridge.railway.app/browser/command \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "click",
+    "selector": "button#submit",
+    "sessionId": "default"
+  }'
 ```
 
 ### Type Text
-```json
-{
-  "action": "type",
-  "selector": "input#username",
-  "text": "myusername",
-  "sessionId": "default"
-}
+```bash
+curl -X POST https://your-bridge.railway.app/browser/command \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "type",
+    "selector": "input#username",
+    "text": "myusername",
+    "sessionId": "default"
+  }'
 ```
 
 ### Screenshot
-```json
-{
-  "action": "screenshot",
-  "options": {
-    "fullPage": true,
-    "type": "png"
-  },
-  "sessionId": "default"
-}
+```bash
+curl -X POST https://your-bridge.railway.app/browser/command \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "screenshot",
+    "options": {
+      "fullPage": true,
+      "type": "png"
+    },
+    "sessionId": "default"
+  }'
 ```
 
 ### Execute JavaScript
-```json
-{
-  "action": "evaluate",
-  "script": "document.title",
-  "sessionId": "default"
-}
+```bash
+curl -X POST https://your-bridge.railway.app/browser/command \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "evaluate",
+    "script": "document.title",
+    "sessionId": "default"
+  }'
 ```
+
+## Configuring OpenClaw to Use This Bridge
+
+To configure OpenClaw to route browser commands to this bridge:
+
+1. Get your bridge URL from Railway (e.g., `https://your-bridge.railway.app`)
+2. Configure OpenClaw to use HTTP endpoint: `https://your-bridge.railway.app/browser/command`
+3. OpenClaw will send browser commands as HTTP POST requests to this endpoint
+
+**Note**: The exact configuration depends on your OpenClaw setup. You may need to:
+- Set an environment variable in OpenClaw pointing to the bridge URL
+- Configure OpenClaw's browser tool to use HTTP instead of WebSocket
+- Update OpenClaw's configuration file
 
 ## Session Management
 
@@ -173,10 +256,10 @@ The bridge supports the following OpenClaw browser commands:
 - Check if Browserless token is required and set correctly
 - Ensure Browserless instance is running on Railway
 
-**Problem**: Cannot connect to OpenClaw Gateway
-- Verify `OPENCLAW_GATEWAY_URL` and `OPENCLAW_GATEWAY_TOKEN`
-- Check network connectivity
-- Ensure Gateway is accessible
+**Problem**: HTTP server not starting
+- Check if `PORT` is available (default: 3000)
+- Verify Railway has exposed the service port
+- Check Railway logs for errors
 
 ### Command Execution Issues
 

@@ -7,5 +7,13 @@
     "startCommand": "npm start",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
-  }
+  },
+  "services": [
+    {
+      "name": "browser-bridge",
+      "source": {
+        "repo": "https://github.com/Christian-Starcke/browser-capable-node-openclaw"
+      }
+    }
+  ]
 }

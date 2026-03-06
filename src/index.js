@@ -1,28 +1,19 @@
-const { chromium } = require('playwright-core');
+const express = require('express');
+const cors = require('cors');
 const { BrowserSessionManager } = require('./session-manager');
 const { CommandMapper } = require('./command-mapper');
 
-// Import OpenClaw Client - the package exports OpenClawClient
-const { OpenClawClient } = require('openclaw-node');
-const Client = OpenClawClient;
-
 // Environment variables
 const {
-  OPENCLAW_GATEWAY_URL,
-  OPENCLAW_GATEWAY_TOKEN,
-  OPENCLAW_WS_PATH, // Optional: WebSocket path (default: try base URL, then /ws)
   BROWSERLESS_WS_ENDPOINT,
   BROWSERLESS_TOKEN,
-  NODE_ID,
+  PORT = 3000,
   LOG_LEVEL = 'info'
 } = process.env;
 
 // Validate required environment variables
 const requiredEnvVars = [
-  'OPENCLAW_GATEWAY_URL',
-  'OPENCLAW_GATEWAY_TOKEN',
-  'BROWSERLESS_WS_ENDPOINT',
-  'NODE_ID'
+  'BROWSERLESS_WS_ENDPOINT'
 ];
 
 const missing = requiredEnvVars.filter(key => !process.env[key]);
@@ -47,51 +38,44 @@ if (BROWSERLESS_TOKEN && !browserlessUrl.includes('token=')) {
   browserlessUrl = `${browserlessUrl}${separator}token=${BROWSERLESS_TOKEN}`;
 }
 
-// Prepare OpenClaw Gateway URL
-// OpenClawClient may handle HTTP to WebSocket conversion internally
-let openclawUrl = OPENCLAW_GATEWAY_URL.trim();
-
-// Remove trailing slash
-if (openclawUrl.endsWith('/')) {
-  openclawUrl = openclawUrl.slice(0, -1);
-}
-
-// Add WebSocket path if specified
-if (OPENCLAW_WS_PATH !== undefined && OPENCLAW_WS_PATH !== '') {
-  const wsPath = OPENCLAW_WS_PATH.startsWith('/') ? OPENCLAW_WS_PATH : `/${OPENCLAW_WS_PATH}`;
-  openclawUrl = `${openclawUrl}${wsPath}`;
-}
-
-// Try passing HTTP URL first - OpenClawClient may convert it internally
-// If that doesn't work, we'll need to manually convert to WebSocket
-log.info(`Connecting to OpenClaw Gateway with URL: ${openclawUrl}`);
-log.info('Note: OpenClawClient may handle HTTP to WebSocket conversion internally');
-
-// Initialize OpenClaw client
-// Try HTTP URL first - OpenClawClient may convert to WebSocket internally
-const client = new Client({
-  url: openclawUrl,
-  token: OPENCLAW_GATEWAY_TOKEN,
-  nodeId: NODE_ID,
-  capabilities: ['browser']
-});
-
 // Initialize session manager and command mapper
 const sessionManager = new BrowserSessionManager(browserlessUrl);
 const commandMapper = new CommandMapper(sessionManager);
 
-// Handle browser commands from OpenClaw
-client.on('browser-command', async (cmd, respond) => {
-  log.info(`Received browser command: ${cmd.action || cmd.type || 'unknown'}`);
+// Initialize Express app
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '50mb' })); // Support large screenshots
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'browser-bridge',
+    browserless: BROWSERLESS_WS_ENDPOINT ? 'configured' : 'not configured',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Browser command endpoint
+app.post('/browser/command', async (req, res) => {
+  const cmd = req.body;
+  
+  log.info(`Received browser command: ${cmd.action || cmd.type || cmd.command || 'unknown'}`);
   log.debug('Command details:', JSON.stringify(cmd, null, 2));
 
   try {
     const result = await commandMapper.execute(cmd);
     log.debug('Command result:', JSON.stringify(result, null, 2));
-    respond(result);
+    res.json({
+      success: true,
+      ...result
+    });
   } catch (error) {
     log.error('Command execution error:', error);
-    respond({
+    res.status(500).json({
       success: false,
       error: error.message,
       stack: LOG_LEVEL === 'debug' ? error.stack : undefined
@@ -99,14 +83,63 @@ client.on('browser-command', async (cmd, respond) => {
   }
 });
 
+// Browser command endpoint (alternative path for compatibility)
+app.post('/api/browser/command', async (req, res) => {
+  // Same handler as /browser/command
+  const cmd = req.body;
+  
+  log.info(`Received browser command (via /api): ${cmd.action || cmd.type || cmd.command || 'unknown'}`);
+  log.debug('Command details:', JSON.stringify(cmd, null, 2));
+
+  try {
+    const result = await commandMapper.execute(cmd);
+    log.debug('Command result:', JSON.stringify(result, null, 2));
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    log.error('Command execution error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: LOG_LEVEL === 'debug' ? error.stack : undefined
+    });
+  }
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    service: 'OpenClaw Browser Bridge',
+    version: '2.0.0',
+    endpoints: {
+      health: '/health',
+      browserCommand: '/browser/command',
+      browserCommandAlt: '/api/browser/command'
+    },
+    documentation: 'POST browser commands to /browser/command endpoint'
+  });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  log.error('Express error:', err);
+  res.status(500).json({
+    success: false,
+    error: err.message
+  });
+});
+
 // Graceful shutdown
 const shutdown = async () => {
   log.info('Shutting down...');
   try {
     await sessionManager.closeAll();
-    await client.disconnect();
-    log.info('Shutdown complete');
-    process.exit(0);
+    server.close(() => {
+      log.info('HTTP server closed');
+      process.exit(0);
+    });
   } catch (error) {
     log.error('Error during shutdown:', error);
     process.exit(1);
@@ -116,25 +149,16 @@ const shutdown = async () => {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-// Handle client errors
-client.on('error', (error) => {
-  log.error('OpenClawClient error:', error.message);
-  log.debug('Error details:', error);
+// Start HTTP server
+const server = app.listen(PORT, () => {
+  log.info(`Browser Bridge HTTP server listening on port ${PORT}`);
+  log.info(`Health check: http://localhost:${PORT}/health`);
+  log.info(`Browser command endpoint: http://localhost:${PORT}/browser/command`);
+  log.info(`Browserless endpoint: ${BROWSERLESS_WS_ENDPOINT}`);
 });
 
-// Connect to OpenClaw Gateway
-log.info(`Connecting to OpenClaw Gateway at: ${openclawUrl}`);
-client.connect()
-  .then(() => {
-    log.info(`Node ${NODE_ID} connected to OpenClaw Gateway with browser capability`);
-    log.info(`Browserless endpoint: ${BROWSERLESS_WS_ENDPOINT}`);
-  })
-  .catch((error) => {
-    log.error('Failed to connect to OpenClaw Gateway:', error.message);
-    log.error('Connection URL attempted:', openclawUrl);
-    log.error('Original Gateway URL:', OPENCLAW_GATEWAY_URL);
-    if (LOG_LEVEL === 'debug') {
-      log.error('Full error:', error);
-    }
-    process.exit(1);
-  });
+// Handle server errors
+server.on('error', (error) => {
+  log.error('HTTP server error:', error);
+  process.exit(1);
+});
