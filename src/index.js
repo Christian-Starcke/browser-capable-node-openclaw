@@ -39,8 +39,9 @@ if (BROWSERLESS_TOKEN && !browserlessUrl.includes('token=')) {
 }
 
 // Initialize OpenClaw client
+// OpenClawClient expects 'url' not 'gatewayUrl'
 const client = new Client({
-  gatewayUrl: OPENCLAW_GATEWAY_URL,
+  url: OPENCLAW_GATEWAY_URL,
   token: OPENCLAW_GATEWAY_TOKEN,
   nodeId: NODE_ID,
   capabilities: ['browser']
