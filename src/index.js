@@ -2,43 +2,9 @@ const { chromium } = require('playwright-core');
 const { BrowserSessionManager } = require('./session-manager');
 const { CommandMapper } = require('./command-mapper');
 
-// Import OpenClaw Client - try different export patterns
-let Client;
-try {
-  const openclawNode = require('openclaw-node');
-  
-  // Try destructured export first (most common)
-  if (openclawNode.Client) {
-    Client = openclawNode.Client;
-  } 
-  // Try default export with Client property
-  else if (openclawNode.default && openclawNode.default.Client) {
-    Client = openclawNode.default.Client;
-  }
-  // Try if Client is the default export
-  else if (openclawNode.default && typeof openclawNode.default === 'function') {
-    Client = openclawNode.default;
-  }
-  // Try if the whole module is the Client
-  else if (typeof openclawNode === 'function') {
-    Client = openclawNode;
-  }
-  // If nothing works, show helpful error
-  else {
-    console.error('[ERROR] openclaw-node module structure:', Object.keys(openclawNode));
-    throw new Error('openclaw-node Client export not found. Package may not be installed or exports differently.');
-  }
-} catch (error) {
-  if (error.code === 'MODULE_NOT_FOUND') {
-    console.error('[ERROR] openclaw-node package not found!');
-    console.error('[ERROR] Please install it: npm install openclaw-node');
-    console.error('[ERROR] Or if it\'s a GitHub package, update package.json with:');
-    console.error('[ERROR] "openclaw-node": "github:username/repo#branch"');
-  } else {
-    console.error('[ERROR] Failed to load openclaw-node:', error.message);
-  }
-  process.exit(1);
-}
+// Import OpenClaw Client - the package exports OpenClawClient
+const { OpenClawClient } = require('openclaw-node');
+const Client = OpenClawClient;
 
 // Environment variables
 const {
