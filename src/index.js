@@ -28,9 +28,12 @@ if (missing.length > 0) {
 }
 
 // Build Browserless WebSocket URL with token
-const browserlessUrl = BROWSERLESS_TOKEN 
-  ? `${BROWSERLESS_WS_ENDPOINT}?token=${BROWSERLESS_TOKEN}`
-  : BROWSERLESS_WS_ENDPOINT;
+// Only add token if endpoint doesn't already have one and token is provided
+let browserlessUrl = BROWSERLESS_WS_ENDPOINT;
+if (BROWSERLESS_TOKEN && !browserlessUrl.includes('token=')) {
+  const separator = browserlessUrl.includes('?') ? '&' : '?';
+  browserlessUrl = `${browserlessUrl}${separator}token=${BROWSERLESS_TOKEN}`;
+}
 
 // Initialize OpenClaw client
 const client = new Client({
