@@ -1,14 +1,16 @@
 {
   "name": "browser-capable-node-openclaw",
-  "version": "1.0.0",
-  "description": "OpenClaw node bridge for Browserless browser automation",
-  "main": "browser-node.js",
+  "version": "2.0.0",
+  "description": "Playwright bridge node connecting OpenClaw to Browserless on Railway",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node browser-node.js"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
   },
   "dependencies": {
-    "ws": "^8.13.0",
-    "openclaw-node": "*"
+    "playwright-core": "^1.40.0",
+    "openclaw-node": "*",
+    "ws": "^8.13.0"
   },
   "engines": {
     "node": ">=18"
