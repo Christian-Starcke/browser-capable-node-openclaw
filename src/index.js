@@ -31,6 +31,14 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+// Logging utility (define early so we can use it)
+const log = {
+  info: (msg, ...args) => console.log(`[INFO] ${msg}`, ...args),
+  error: (msg, ...args) => console.error(`[ERROR] ${msg}`, ...args),
+  debug: (msg, ...args) => LOG_LEVEL === 'debug' && console.log(`[DEBUG] ${msg}`, ...args),
+  warn: (msg, ...args) => console.warn(`[WARN] ${msg}`, ...args)
+};
+
 // Build Browserless WebSocket URL with token
 // Only add token if endpoint doesn't already have one and token is provided
 let browserlessUrl = BROWSERLESS_WS_ENDPOINT;
@@ -82,14 +90,6 @@ const client = new Client({
 // Initialize session manager and command mapper
 const sessionManager = new BrowserSessionManager(browserlessUrl);
 const commandMapper = new CommandMapper(sessionManager);
-
-// Logging utility
-const log = {
-  info: (msg, ...args) => console.log(`[INFO] ${msg}`, ...args),
-  error: (msg, ...args) => console.error(`[ERROR] ${msg}`, ...args),
-  debug: (msg, ...args) => LOG_LEVEL === 'debug' && console.log(`[DEBUG] ${msg}`, ...args),
-  warn: (msg, ...args) => console.warn(`[WARN] ${msg}`, ...args)
-};
 
 // Handle browser commands from OpenClaw
 client.on('browser-command', async (cmd, respond) => {
