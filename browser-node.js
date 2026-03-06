@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const { Client } = require('openclaw-node');
+const Client = require('openclaw-node');
 
 // Read env variables
 const {
@@ -51,5 +51,3 @@ client.on('browser-command', (cmd, respond) => {
 client.connect().then(() => {
   console.log(`Node ${NODE_ID} connected to OpenClaw Gateway with browser capability`);
 }).catch(console.error);
-
-
