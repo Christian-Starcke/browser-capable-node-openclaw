@@ -110,6 +110,32 @@ app.post('/browser/command', async (req, res) => {
   }
 });
 
+// GET handler for /browser/command - for debugging
+app.get('/browser/command', (req, res) => {
+  const timestamp = new Date().toISOString();
+  log.warn(`[GET_REQUEST] GET /browser/command received at ${timestamp}`);
+  log.warn(`[GET_REQUEST] This endpoint requires POST requests`);
+  log.warn(`[GET_REQUEST] Query params:`, JSON.stringify(req.query, null, 2));
+  log.warn(`[GET_REQUEST] Headers:`, JSON.stringify(req.headers, null, 2));
+  
+  res.status(405).json({
+    success: false,
+    error: 'Method not allowed',
+    message: 'This endpoint only accepts POST requests. Use POST with a JSON body containing browser commands.',
+    receivedMethod: 'GET',
+    requiredMethod: 'POST',
+    example: {
+      method: 'POST',
+      url: '/browser/command',
+      body: {
+        action: 'navigate',
+        url: 'https://example.com',
+        sessionId: 'default'
+      }
+    }
+  });
+});
+
 // Browser command endpoint (alternative path for compatibility)
 app.post('/api/browser/command', async (req, res) => {
   // Same handler as /browser/command
@@ -143,6 +169,32 @@ app.post('/api/browser/command', async (req, res) => {
       stack: LOG_LEVEL === 'debug' ? error.stack : undefined
     });
   }
+});
+
+// GET handler for /api/browser/command - for debugging
+app.get('/api/browser/command', (req, res) => {
+  const timestamp = new Date().toISOString();
+  log.warn(`[GET_REQUEST] GET /api/browser/command received at ${timestamp}`);
+  log.warn(`[GET_REQUEST] This endpoint requires POST requests`);
+  log.warn(`[GET_REQUEST] Query params:`, JSON.stringify(req.query, null, 2));
+  log.warn(`[GET_REQUEST] Headers:`, JSON.stringify(req.headers, null, 2));
+  
+  res.status(405).json({
+    success: false,
+    error: 'Method not allowed',
+    message: 'This endpoint only accepts POST requests. Use POST with a JSON body containing browser commands.',
+    receivedMethod: 'GET',
+    requiredMethod: 'POST',
+    example: {
+      method: 'POST',
+      url: '/api/browser/command',
+      body: {
+        action: 'navigate',
+        url: 'https://example.com',
+        sessionId: 'default'
+      }
+    }
+  });
 });
 
 // Root endpoint
