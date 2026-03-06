@@ -61,20 +61,30 @@ app.get('/health', (req, res) => {
 
 // Browser command endpoint
 app.post('/browser/command', async (req, res) => {
+  const startTime = Date.now();
   const cmd = req.body;
   
-  log.info(`Received browser command: ${cmd.action || cmd.type || cmd.command || 'unknown'}`);
-  log.debug('Command details:', JSON.stringify(cmd, null, 2));
+  // Set a longer timeout for browser operations (60 seconds)
+  req.setTimeout(60000);
+  res.setTimeout(60000);
+  
+  log.info(`[REQUEST] Received browser command: ${cmd.action || cmd.type || cmd.command || 'unknown'}`);
+  log.info(`[REQUEST] Full command payload:`, JSON.stringify(cmd, null, 2));
+  log.info(`[REQUEST] Headers:`, JSON.stringify(req.headers, null, 2));
 
   try {
     const result = await commandMapper.execute(cmd);
+    const duration = Date.now() - startTime;
+    log.info(`[RESPONSE] Command completed in ${duration}ms`);
     log.debug('Command result:', JSON.stringify(result, null, 2));
     res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    log.error('Command execution error:', error);
+    const duration = Date.now() - startTime;
+    log.error(`[ERROR] Command failed after ${duration}ms:`, error.message);
+    log.error('[ERROR] Stack:', error.stack);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -86,20 +96,30 @@ app.post('/browser/command', async (req, res) => {
 // Browser command endpoint (alternative path for compatibility)
 app.post('/api/browser/command', async (req, res) => {
   // Same handler as /browser/command
+  const startTime = Date.now();
   const cmd = req.body;
   
-  log.info(`Received browser command (via /api): ${cmd.action || cmd.type || cmd.command || 'unknown'}`);
-  log.debug('Command details:', JSON.stringify(cmd, null, 2));
+  // Set a longer timeout for browser operations (60 seconds)
+  req.setTimeout(60000);
+  res.setTimeout(60000);
+  
+  log.info(`[REQUEST] Received browser command (via /api): ${cmd.action || cmd.type || cmd.command || 'unknown'}`);
+  log.info(`[REQUEST] Full command payload:`, JSON.stringify(cmd, null, 2));
+  log.info(`[REQUEST] Headers:`, JSON.stringify(req.headers, null, 2));
 
   try {
     const result = await commandMapper.execute(cmd);
+    const duration = Date.now() - startTime;
+    log.info(`[RESPONSE] Command completed in ${duration}ms`);
     log.debug('Command result:', JSON.stringify(result, null, 2));
     res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    log.error('Command execution error:', error);
+    const duration = Date.now() - startTime;
+    log.error(`[ERROR] Command failed after ${duration}ms:`, error.message);
+    log.error('[ERROR] Stack:', error.stack);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -156,6 +176,10 @@ const server = app.listen(PORT, () => {
   log.info(`Browser command endpoint: http://localhost:${PORT}/browser/command`);
   log.info(`Browserless endpoint: ${BROWSERLESS_WS_ENDPOINT}`);
 });
+
+// Set server timeout to 60 seconds for long-running browser operations
+server.timeout = 60000;
+server.keepAliveTimeout = 60000;
 
 // Handle server errors
 server.on('error', (error) => {
